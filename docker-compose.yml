@@ -25,6 +25,10 @@ services:
   airflow:
     image: apache/airflow
     restart: unless-stopped
+    environment:
+      - PYTHONPATH=/mnt/etl
+      - _AIRFLOW_WWW_USER_USERNAME=airflow
+      - _AIRFLOW_WWW_USER_PASSWORD=airflow
     depends_on:
       - postgres
     ports:
@@ -32,6 +36,8 @@ services:
     volumes:
       - ./dags:/opt/airflow/dags
       - datalake:/mnt/datalake
+      - ./API/etl:/mnt/etl 
+      - ./airflow_confg/webserver_config.py:/opt/airflow/webserver_config.py
     command: airflow standalone
 
   spark:
@@ -44,7 +50,7 @@ services:
       - "8081:8080"
     volumes:
       - ./spark_jars:/opt/spark_jars
-      - ./etl:/mnt/etl 
+      - ./API/etl:/mnt/etl 
       - datalake:/mnt/datalake
 
   spark-worker:
@@ -57,7 +63,7 @@ services:
     volumes:
       - ./spark_jars:/opt/spark_jars
       - datalake:/mnt/datalake
-      - ./etl:/mnt/etl 
+      - ./API/etl:/mnt/etl 
 
   api:
     build: ./API

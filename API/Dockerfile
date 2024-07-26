@@ -1,4 +1,4 @@
-FROM python:latest
+FROM python:3.9.19
 
 WORKDIR /app
 
@@ -6,8 +6,10 @@ COPY . .
 
 RUN chmod +x setup_datalake.sh 
 
+RUN ./setup_datalake.sh
 
-RUN ./setup_datalake.sh \ 
+RUN apt-get update && apt-get upgrade -y \
+    && pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
 
