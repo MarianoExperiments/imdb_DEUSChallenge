@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: library/postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: challenge
+    hostname: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./pgdata/data:/var/lib/postgresql/data
+  
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@deus.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "16543:80"
+    depends_on:
+      - postgres
+
+  airflow:
+    image: apache/airflow
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - datalake:/mnt/datalake
+    command: airflow standalone
+
+  spark:
+    image: bitnami/spark:latest
+    depends_on:
+      - airflow
+    environment:
+      - SPARK_MODE=master
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./spark_jars:/opt/spark_jars
+      - ./etl:/mnt/etl 
+      - datalake:/mnt/datalake
+
+  spark-worker:
+    image: bitnami/spark:latest
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark:7077
+    depends_on:
+      - spark
+    volumes:
+      - ./spark_jars:/opt/spark_jars
+      - datalake:/mnt/datalake
+      - ./etl:/mnt/etl 
+
+  api:
+    build: ./API
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - spark-worker
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    volumes:
+      - datalake:/mnt/datalake
+
+volumes:
+  datalake:
