@@ -12,42 +12,46 @@ services:
     volumes:
       - ./pgdata/data:/var/lib/postgresql/data
   
-  pgadmin:
-    image: dpage/pgadmin4
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@deus.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "16543:80"
-    depends_on:
-      - postgres
+  # pgadmin:
+  #   image: dpage/pgadmin4
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: admin@deus.com
+  #     PGADMIN_DEFAULT_PASSWORD: admin
+  #   ports:
+  #     - "16543:80"
+  #   depends_on:
+  #     - postgres
 
   airflow:
-    image: apache/airflow
+    build: ./airflow_config
     restart: unless-stopped
     environment:
       - PYTHONPATH=/mnt/etl
-      - _AIRFLOW_WWW_USER_USERNAME=airflow
-      - _AIRFLOW_WWW_USER_PASSWORD=airflow
     depends_on:
       - postgres
     ports:
       - "8080:8080"
     volumes:
       - ./dags:/opt/airflow/dags
-      - datalake:/mnt/datalake
       - ./API/etl:/mnt/etl 
-      - ./airflow_confg/webserver_config.py:/opt/airflow/webserver_config.py
+      - datalake:/mnt/datalake
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health"]
+      interval: 1m
+      timeout: 2m
+      retries: 3
     command: airflow standalone
 
   spark:
     image: bitnami/spark:latest
     depends_on:
-      - airflow
+      airflow:
+        condition: service_healthy
     environment:
       - SPARK_MODE=master
     ports:
       - "8081:8080"
+    hostname: master_spark
     volumes:
       - ./spark_jars:/opt/spark_jars
       - ./API/etl:/mnt/etl 

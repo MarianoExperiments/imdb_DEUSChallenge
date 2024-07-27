@@ -1,26 +1,18 @@
-from flask import Flask, jsonify, request
-import psycopg2
+from pyspark.sql import SparkSession
 
-app = Flask(__name__)
+spark = SparkSession.builder \
+    .appName("Python Spark SQL example") \
+    .config("spark.jars", "/opt/spark_jars/postgresql-42.2.27.jre6.jar") \
+    .getOrCreate()
 
-def get_db_connection():
-    conn = psycopg2.connect(
-        dbname='challenge',
-        user='admin',
-        password='admin',
-        host='postgres'
-    )
-    return conn
 
-@app.route('/test', methods=['GET'])
-def get_test():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM public.dag")
-    test_result = cur.fetchall()
-    cur.close()
-    conn.close()
-    return jsonify(test_result)
+df = spark.read \
+    .format("jdbc") \
+    .option("url", "jdbc:postgresql://postgres:5432/challenge") \
+    .option("query", "SELECT * FROM public.dag") \
+    .option("user", "admin") \
+    .option("password", "admin") \
+    .option("driver", "org.postgresql.Driver") \
+    .load()
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0')
+df.show()
