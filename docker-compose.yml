@@ -5,9 +5,25 @@ networks:
     driver: bridge
 
 services:
+  init:
+    image: alpine
+    volumes:
+      - datalake:/mnt/datalake
+    command: >
+      sh -c "
+        mkdir -p -m 777 /mnt/datalake/raw/imdb &&
+        mkdir -p -m 777 /mnt/datalake/clean/imdb
+        chown -R 999:999 /mnt/datalake/clean/imdb
+      "
+    deploy:
+      restart_policy:
+        condition: on-failure
+  
   postgres:
     image: library/postgres
     restart: unless-stopped
+    depends_on:
+      - init
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin
@@ -44,8 +60,10 @@ services:
       - project_net
     ports:
       - "8080:8080"
+    environment:
+      - PYTHONPATH=/mnt/etl
     volumes:
-      - ./spark_jars:/opt/spark_jars
+      - ./spark_jars/postgresql-42.7.3.jar:/opt/airflow/postgresql-42.7.3.jar
       - ./dags:/opt/airflow/dags
       - ./API/etl:/mnt/etl 
       - datalake:/mnt/datalake
@@ -63,6 +81,7 @@ services:
         condition: service_healthy
     environment:
       - SPARK_MODE=master
+      - PYTHONPATH=/mnt/etl
     ports:
       - "8081:8080"
     networks:
@@ -78,6 +97,9 @@ services:
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark:7077
+      - PYTHONPATH=/mnt/etl
+    ports:
+      - "4040:4040"
     depends_on:
       - spark
     networks:
@@ -87,20 +109,20 @@ services:
       - ./API/etl:/mnt/etl 
       - datalake:/mnt/datalake
 
-  # api:
-  #   build: ./API
-  #   restart: unless-stopped
-  #   depends_on:
-  #     - postgres
-  #     - spark-worker
-  #   ports:
-  #     - "5000:5000"
-  #   environment:
-  #     - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-  #   volumes:
-  #     - datalake:/mnt/datalake
-      # networks:
-      #   - project_net
+  api:
+    build: ./API
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - spark-worker
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    volumes:
+      - datalake:/mnt/datalake
+    networks:
+      - project_net
 
 volumes:
   datalake:

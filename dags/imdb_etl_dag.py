@@ -4,10 +4,7 @@ from datetime import datetime
 
 data_assets = [
     "name.basics",
-    "title.akas",
     "title.basics",
-    "title.crew",
-    "title.episode",
     "title.principals",
     "title.ratings",]
 
@@ -36,12 +33,22 @@ with DAG ('IMDB_ETL', default_args=default_args, schedule_interval=None, descrip
             task_id=f'clean_data_{data_asset}',
             bash_command=f'''spark-submit \
                 --master spark://master-spark:7077 \
+                --driver-class-path /opt/airflow/postgresql-42.7.3.jar --jars postgresql-42.7.3.jar \
                 --name clean_data_{data_asset} \
-                /mnt/etl/cleansing/clean_test.py --data_asset {data_asset} --file_path {file_path}''',
+                /mnt/etl/cleansing/clean_task.py --data_asset {data_asset} --file_path {file_path}''',
         )
         clean_tasks.append(task)
+        
+    task = BashOperator(
+            task_id=f'task_professional_info',
+            bash_command=f'''spark-submit \
+                --master spark://master-spark:7077 \
+                --driver-class-path /opt/airflow/postgresql-42.7.3.jar --jars postgresql-42.7.3.jar \
+                --name task_professional_info \
+                /mnt/etl/enriching/professional_info.py''',
+        )
     
     
     for i in range(len(data_assets)):
-        ingest_tasks[i] >> clean_tasks[i]
+        ingest_tasks[i] >> clean_tasks[i] >> task
     
