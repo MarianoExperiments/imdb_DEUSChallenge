@@ -1,5 +1,6 @@
 import os
 import requests
+import argparse
 from datetime import datetime
 from timeit import default_timer as timer
 
@@ -24,9 +25,16 @@ def data_asset_ingestion(data_asset):
     return file_path
 
 
-def main(data_asset):
+def main():
+    
     start = timer()
     
+    parser = argparse.ArgumentParser(description="Ingestion Process")
+    
+    parser.add_argument('--data_asset', type=str, dest="data_asset")
+    
+    args = parser.parse_args()
+    data_asset = args.data_asset
     print(f"Data asset: {data_asset}")
     
     if not os.path.exists(raw_path):
@@ -37,7 +45,7 @@ def main(data_asset):
     end = timer()
     print(end - start)
     
-    return file_path
+    print(file_path)
     
 
 if __name__ == "__main__":

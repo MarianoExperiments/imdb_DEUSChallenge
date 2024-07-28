@@ -1,3 +1,9 @@
+version: '3.8'
+
+networks:
+  project_net:
+    driver: bridge
+
 services:
   postgres:
     image: library/postgres
@@ -9,36 +15,44 @@ services:
     hostname: postgres
     ports:
       - "5432:5432"
+    networks:
+      - project_net
     volumes:
       - ./pgdata/data:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d/
+      - datalake:/mnt/datalake
   
-  # pgadmin:
-  #   image: dpage/pgadmin4
-  #   environment:
-  #     PGADMIN_DEFAULT_EMAIL: admin@deus.com
-  #     PGADMIN_DEFAULT_PASSWORD: admin
-  #   ports:
-  #     - "16543:80"
-  #   depends_on:
-  #     - postgres
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@deus.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "16543:80"
+    depends_on:
+      - postgres
+    networks:
+      - project_net
 
   airflow:
     build: ./airflow_config
     restart: unless-stopped
-    environment:
-      - PYTHONPATH=/mnt/etl
+    hostname: airflow
     depends_on:
       - postgres
+    networks:
+      - project_net
     ports:
       - "8080:8080"
     volumes:
+      - ./spark_jars:/opt/spark_jars
       - ./dags:/opt/airflow/dags
       - ./API/etl:/mnt/etl 
       - datalake:/mnt/datalake
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health"]
-      interval: 1m
-      timeout: 2m
+      interval: 30s
+      timeout: 3m
       retries: 3
     command: airflow standalone
 
@@ -51,7 +65,9 @@ services:
       - SPARK_MODE=master
     ports:
       - "8081:8080"
-    hostname: master_spark
+    networks:
+      - project_net
+    hostname: master-spark
     volumes:
       - ./spark_jars:/opt/spark_jars
       - ./API/etl:/mnt/etl 
@@ -64,23 +80,27 @@ services:
       - SPARK_MASTER_URL=spark://spark:7077
     depends_on:
       - spark
+    networks:
+      - project_net
     volumes:
       - ./spark_jars:/opt/spark_jars
-      - datalake:/mnt/datalake
       - ./API/etl:/mnt/etl 
-
-  api:
-    build: ./API
-    restart: unless-stopped
-    depends_on:
-      - postgres
-      - spark-worker
-    ports:
-      - "5000:5000"
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-    volumes:
       - datalake:/mnt/datalake
+
+  # api:
+  #   build: ./API
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - postgres
+  #     - spark-worker
+  #   ports:
+  #     - "5000:5000"
+  #   environment:
+  #     - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  #   volumes:
+  #     - datalake:/mnt/datalake
+      # networks:
+      #   - project_net
 
 volumes:
   datalake:

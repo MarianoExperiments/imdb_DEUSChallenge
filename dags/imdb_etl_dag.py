@@ -1,8 +1,5 @@
 from airflow import DAG
-from airflow.operators.python_operator import PythonOperator
-from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
-from ingestion import request_ingestion
-from cleansing import clean_test
+from airflow.operators.bash import BashOperator
 from datetime import datetime
 
 data_assets = [
@@ -24,36 +21,27 @@ default_args = {
 with DAG ('IMDB_ETL', default_args=default_args, schedule_interval=None, description="IMDB: Ingestion and Cleansing Pipeline") as dag:
 
     
-    # ingest_tasks = []
-    # for data_asset in data_assets:
-    #     task = PythonOperator(
-    #         task_id=f'ingest_data_{data_asset}',
-    #         python_callable=request_ingestion.main,
-    #         op_kwargs={"data_asset": data_asset},
-    #         provide_context=True,
-    #     )
-    #     ingest_tasks.append(task)
+    ingest_tasks = []
+    for data_asset in data_assets:
+        task = BashOperator(
+            task_id=f'ingest_data_{data_asset}',
+            bash_command=f"python3 /mnt/etl/ingestion/request_ingestion.py --data_asset {data_asset}"
+        )
+        ingest_tasks.append(task)
     
-    # clean_tasks = []
-    # for data_asset in data_assets:
-    #     task = PythonOperator(
-    #         task_id=f'clean_data_{data_asset}',
-    #         python_callable=clean_test.main,
-    #         op_kwargs={"data_asset": data_asset, 'file_path': f"{{{{ task_instance.xcom_pull(task_ids='ingest_data_{data_asset}') }}}}"},
-    #         provide_context=True,
-    #     )
-    #     clean_tasks.append(task)
-    # for data_asset in data_assets:
+    clean_tasks = []
+    for data_asset in data_assets:
+        file_path = f"{{{{ task_instance.xcom_pull(task_ids='ingest_data_{data_asset}') }}}}"
+        task = BashOperator(
+            task_id=f'clean_data_{data_asset}',
+            bash_command=f'''spark-submit \
+                --master spark://master-spark:7077 \
+                --name clean_data_{data_asset} \
+                /mnt/etl/cleansing/clean_test.py --data_asset {data_asset} --file_path {file_path}''',
+        )
+        clean_tasks.append(task)
     
     
-    task = SparkSubmitOperator(
-            task_id='clean_data_test',
-            application='/mnt/etl/cleansing/clean_test.py',  # Path to your PySpark script
-            name='clean_data_test',
-            conn_id='spark_default',
-            )
-        # clean_tasks.append(task)
+    for i in range(len(data_assets)):
+        ingest_tasks[i] >> clean_tasks[i]
     
-    # for i in range(len(data_assets)):
-    #     ingest_tasks[i] >> clean_tasks[i]
-    task
