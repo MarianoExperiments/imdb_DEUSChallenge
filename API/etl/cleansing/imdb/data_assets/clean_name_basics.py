@@ -17,8 +17,7 @@ class NameBasicsClean(CleanTaskIMDB):
 
     def transform(self, df):
         
-        df = df.withColumn("primaryProfession", F.explode(F.split(F.col("primaryProfession"), ",")))\
-                .withColumn("tconst", F.explode(F.split(F.col("tconst"), ",")))
+        df = df.withColumn("tconst", F.explode(F.split(F.col("tconst"), ",")))
         
         df = super().transform(df)
 

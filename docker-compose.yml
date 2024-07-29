@@ -11,9 +11,10 @@ services:
       - datalake:/mnt/datalake
     command: >
       sh -c "
+        chown -R 1000:0 /mnt/datalake &&
         mkdir -p -m 777 /mnt/datalake/raw/imdb &&
+        mkdir -p -m 777 /mnt/datalake/clean &&
         mkdir -p -m 777 /mnt/datalake/clean/imdb
-        chown -R 999:999 /mnt/datalake/clean/imdb
       "
     deploy:
       restart_policy:
@@ -54,6 +55,7 @@ services:
     build: ./airflow_config
     restart: unless-stopped
     hostname: airflow
+    user: "1000:0"
     depends_on:
       - postgres
     networks:
@@ -76,6 +78,7 @@ services:
 
   spark:
     image: bitnami/spark:latest
+    user: "1000:0"
     depends_on:
       airflow:
         condition: service_healthy
@@ -94,6 +97,7 @@ services:
 
   spark-worker:
     image: bitnami/spark:latest
+    user: "1000:0"
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark:7077

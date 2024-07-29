@@ -18,17 +18,18 @@ default_args = {
 with DAG ('IMDB_ETL', default_args=default_args, schedule_interval=None, description="IMDB: Ingestion and Cleansing Pipeline") as dag:
 
     
-    ingest_tasks = []
-    for data_asset in data_assets:
-        task = BashOperator(
-            task_id=f'ingest_data_{data_asset}',
-            bash_command=f"python3 /mnt/etl/ingestion/request_ingestion.py --data_asset {data_asset}"
-        )
-        ingest_tasks.append(task)
+    # ingest_tasks = []
+    # for data_asset in data_assets:
+    #     task = BashOperator(
+    #         task_id=f'ingest_data_{data_asset}',
+    #         bash_command=f"python3 /mnt/etl/ingestion/request_ingestion.py --data_asset {data_asset}"
+    #     )
+    #     ingest_tasks.append(task)
     
     clean_tasks = []
     for data_asset in data_assets:
-        file_path = f"{{{{ task_instance.xcom_pull(task_ids='ingest_data_{data_asset}') }}}}"
+        # file_path = f"{{{{ task_instance.xcom_pull(task_ids='ingest_data_{data_asset}') }}}}"
+        file_path = f"/mnt/datalake/raw/imdb/{data_asset.replace('.', '_')}/2024-07-29"
         task = BashOperator(
             task_id=f'clean_data_{data_asset}',
             bash_command=f'''spark-submit \
@@ -50,5 +51,6 @@ with DAG ('IMDB_ETL', default_args=default_args, schedule_interval=None, descrip
     
     
     for i in range(len(data_assets)):
-        ingest_tasks[i] >> clean_tasks[i] >> task
+        clean_tasks[i] >> task
+        # ingest_tasks[i] >> clean_tasks[i] >> task
     

@@ -10,3 +10,4 @@ RUN apt-get update && apt-get upgrade -y \
 
 
 CMD ["python", "app.py"]
+

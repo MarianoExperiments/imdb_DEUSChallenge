@@ -4,8 +4,6 @@ set -e
 # Execute the SQL scripts
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
 
-    CREATE TABLESPACE imdb_space LOCATION '/mnt/datalake/clean/imdb';
-
     
     CREATE SCHEMA imdb;
 
@@ -20,7 +18,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         endYear INT,
         runtimeMinutes INT,
         genres VARCHAR(255)
-    )TABLESPACE imdb_space;
+    );
 
 
     CREATE TABLE imdb.title_principals (
@@ -30,14 +28,14 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         category VARCHAR(255),
         job VARCHAR(255),
         characters VARCHAR(255)
-    )TABLESPACE imdb_space;
+    );
 
     
     CREATE TABLE imdb.title_ratings (
         tconst VARCHAR(255) PRIMARY KEY,
         averageRating FLOAT,
         numVotes INT
-    )TABLESPACE imdb_space;
+    );
 
     
     CREATE TABLE imdb.name_basics (
@@ -47,7 +45,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         deathYear INT,
         primaryProfession VARCHAR(255),
         tconst VARCHAR(255)
-    )TABLESPACE imdb_space;
+    );
 
 
     CREATE TABLE imdb.professional_info (
@@ -56,7 +54,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
         category VARCHAR(255),
         runtimeMinutes VARCHAR(255),
         averageRating FLOAT
-    )TABLESPACE imdb_space;
+    );
 
 EOSQL
 
