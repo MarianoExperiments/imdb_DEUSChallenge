@@ -57,7 +57,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
             SELECT DISTINCT nb.primaryname AS name, nb.tconst, category
             FROM imdb.name_basics AS nb
             INNER JOIN imdb.title_principals AS tp ON (nb.tconst = tp.tconst AND nb.nconst = tp.nconst)
-            WHERE (tp.category IN ('actor', 'actress')) AND (nb.primaryname ILIKE '%actor%' OR nb.primaryname ILIKE '%actress%')
+            WHERE (tp.category IN ('actor', 'actress'))
         )
         SELECT nb_tp.name, nb_tp.tconst, nb_tp.category, tb_tr.runtimeminutes, tb_tr.averagerating
         FROM nb_tp

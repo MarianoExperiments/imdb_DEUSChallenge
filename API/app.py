@@ -1,7 +1,8 @@
-from flask import Flask, jsonify, request
-import psycopg2
-from flask_restx import Api, Resource
 import logging
+
+from flask import Flask, jsonify, request
+from flask_restx import Api, Resource
+import psycopg2
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.DEBUG)
@@ -23,19 +24,18 @@ def get_db_connection():
 
 @api.route('/professionals_list')
 class ProfessionalsList(Resource):
-    @api.doc(params={'profession': 'Choose "actor" or "actress" (default: "actor")', "limit": "Limit the operation because the API CAN'T handle big amounts of data (default: 1000)"})
+    @api.doc(params={'profession': 'Choose "actor" or "actress" (default: "actor")'})
     def get(self):
         profession = request.args.get('profession', 'actor')  # Default to 'actor'
-        limit = request.args.get('limit', 1000)  # Default to 'actor'
         if profession not in ['actor', 'actress']:
             return jsonify({"error": "Invalid profession. Choose 'actor' or 'actress'."}), 400
 
         query = """
             SELECT 
 	            name,
-	            AVG("averageRating") AS score,
+	            AVG(averagerating) AS score,
 	            COUNT(DISTINCT tconst) AS number_of_titles_as_principal,
-	            SUM("runtimeMinutes") AS total_runtime_minutes
+	            SUM(runtimeminutes) AS total_runtime_minutes
             FROM
 	            imdb.actor_movie_details
             WHERE
@@ -44,7 +44,6 @@ class ProfessionalsList(Resource):
 	            name
             ORDER BY
 	            score DESC
-            LIMIT %s
         """
 
         conn = get_db_connection()
@@ -53,7 +52,7 @@ class ProfessionalsList(Resource):
         
         try:
             cur = conn.cursor()
-            cur.execute(query, (profession,limit,))
+            cur.execute(query, (profession,))
             results = cur.fetchall()
             cur.close()
             conn.close()
@@ -74,6 +73,3 @@ class ProfessionalsList(Resource):
             professionals.append(professional)
 
         return jsonify(professionals)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=True)

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import psycopg2
 from airflow import DAG
@@ -18,16 +18,6 @@ DEFAULT_ARGS = {
  'start_date': datetime (2024, 7, 25),
  'depends_on_past': True 
 }
-
-#Function to modify the paths
-def modify_paths(ti):
-    modified_paths = {}
-    for data_asset in DATA_ASSETS:
-        path = ti.xcom_pull(task_ids=f'ingest_data_{data_asset}')
-        if path:
-            modified_path = path.replace("raw", "clean")
-            modified_paths[data_asset] = modified_path
-    ti.xcom_push(key='modified_paths', value=modified_paths)
     
 
 def refresh_materialized_view():
@@ -89,31 +79,9 @@ with DAG ('IMDB_ETL',
                 --master spark://master-spark:7077 \
                 --driver-class-path /opt/airflow/postgresql-42.7.3.jar --jars postgresql-42.7.3.jar \
                 --name clean_data_{data_asset} \
-                /mnt/etl/cleansing/clean_task.py --data_asset {data_asset} --file_path {paths[data_asset]} --operation clean''',
+                /mnt/etl/cleansing/clean_task.py --data_asset {data_asset} --file_path {paths[data_asset]}''',
         )
         clean_tasks.append(task)
-    
-    modify_paths_task = PythonOperator(
-        task_id='modify_paths',
-        python_callable=modify_paths,
-    )
-    
-    paths_mod = {}
-    for data_asset in DATA_ASSETS:
-        paths_mod[data_asset] = f"{{{{ task_instance.xcom_pull(task_ids='modify_paths', key='modified_paths')['{data_asset}'] }}}}"
-    
-    load_tasks = []
-    for data_asset in DATA_ASSETS:
-        # paths[data_asset] = paths[data_asset].replace("raw", "clean")
-        task = BashOperator(
-            task_id=f'load_data_{data_asset}',
-            bash_command=f'''spark-submit \
-                --master spark://master-spark:7077 \
-                --driver-class-path /opt/airflow/postgresql-42.7.3.jar --jars postgresql-42.7.3.jar \
-                --name load_data_{data_asset} \
-                /mnt/etl/cleansing/clean_task.py --data_asset {data_asset} --file_path {paths_mod[data_asset]} --operation load''',
-        )
-        load_tasks.append(task)
         
     refresh_mv_task = PythonOperator(
         task_id='refresh_materialized_view',
@@ -121,5 +89,5 @@ with DAG ('IMDB_ETL',
     ) 
     
     for i in range(len(DATA_ASSETS)):
-        ingest_tasks[i] >> clean_tasks[i] >> modify_paths_task >> load_tasks[i] >> refresh_mv_task
+        ingest_tasks[i] >> clean_tasks[i] >> refresh_mv_task
     
