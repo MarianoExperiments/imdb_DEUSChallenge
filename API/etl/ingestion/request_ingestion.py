@@ -22,7 +22,7 @@ def data_asset_ingestion(data_asset):
         with requests.Session() as s:
             f.write(s.get(base_request_path+data_asset+data_extension).content)
             
-    return file_path
+    return file_folder_path
 
 
 def main():

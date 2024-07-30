@@ -24,33 +24,17 @@ class ProfessionalsList(Resource):
             return jsonify({"error": "Invalid profession. Choose 'actor' or 'actress'."}), 400
 
         query = """
-            WITH nb AS(
-                SELECT "primaryName" AS name, nconst FROM imdb.name_basics 
-            ),
-            tp AS(
-                SELECT nconst, tconst, category FROM imdb.title_principals WHERE category=%s
-            ),
-            tb AS(
-                SELECT tconst, "runtimeMinutes" FROM imdb.title_basics WHERE "runtimeMinutes" IS NOT NULL
-            ),
-            tr AS(
-                SELECT tconst, "averageRating" FROM imdb.title_ratings
-            )
             SELECT 
-	            nb.name,
-	            AVG(tr."averageRating") AS score,
-	            COUNT(DISTINCT tp.tconst) AS number_of_titles_as_principal,
-	            SUM(tb."runtimeMinutes") AS total_runtime_minutes
+	            name,
+	            AVG("averageRating") AS score,
+	            COUNT(DISTINCT tconst) AS number_of_titles_as_principal,
+	            SUM("runtimeMinutes") AS total_runtime_minutes
             FROM
-	            nb
-            JOIN
-	            tp ON nb.nconst = tp.nconst
-            JOIN
-	            tb ON tp.tconst = tb.tconst
-            JOIN
-	            tr ON tb.tconst = tr.tconst
+	            imdb.professional_info
+            WHERE
+                category = %s
             GROUP BY
-	            nb.name
+	            name
             ORDER BY
 	            score DESC
         """
