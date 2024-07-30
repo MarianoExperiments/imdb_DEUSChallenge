@@ -34,7 +34,7 @@ services:
       - project_net
     volumes:
       - ./pgdata/data:/var/lib/postgresql/data
-      - ./db:/docker-entrypoint-initdb.d/
+      - ./services_config/db:/docker-entrypoint-initdb.d/
       - datalake:/mnt/datalake
   
   pgadmin:
@@ -50,7 +50,7 @@ services:
       - project_net
 
   airflow:
-    build: ./airflow_config
+    build: ./services_config/airflow_config
     restart: unless-stopped
     hostname: airflow
     user: "1000:0"
@@ -61,11 +61,11 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - PYTHONPATH=/mnt/etl
+      - PYTHONPATH=/mnt/etl/tasks
     volumes:
-      - ./spark_jars/postgresql-42.7.3.jar:/opt/airflow/postgresql-42.7.3.jar
-      - ./dags:/opt/airflow/dags
-      - ./API/etl:/mnt/etl 
+      - ./services_config/spark_config/spark_jars/postgresql-42.7.3.jar:/opt/airflow/postgresql-42.7.3.jar
+      - ./ETL/Airflow/dags:/opt/airflow/dags
+      - ./ETL/tasks:/mnt/etl/tasks
       - datalake:/mnt/datalake
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health"]
@@ -82,15 +82,15 @@ services:
         condition: service_healthy
     environment:
       - SPARK_MODE=master
-      - PYTHONPATH=/mnt/etl
+      - PYTHONPATH=/mnt/etl/tasks
     ports:
       - "8081:8080"
     networks:
       - project_net
     hostname: master-spark
     volumes:
-      - ./spark_jars:/opt/spark_jars
-      - ./API/etl:/mnt/etl 
+      - ./services_config/spark_config/spark_jars:/opt/spark_jars
+      - ./ETL/tasks:/mnt/etl/tasks
       - datalake:/mnt/datalake
 
   spark-worker:
@@ -99,14 +99,14 @@ services:
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark:7077
-      - PYTHONPATH=/mnt/etl
+      - PYTHONPATH=/mnt/etl/tasks
     depends_on:
       - spark
     networks:
       - project_net
     volumes:
-      - ./spark_jars:/opt/spark_jars
-      - ./API/etl:/mnt/etl 
+      - ./services_config/spark_config/spark_jars:/opt/spark_jars
+      - ./ETL/tasks:/mnt/etl/tasks
       - datalake:/mnt/datalake
 
   api:
