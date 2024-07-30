@@ -1,7 +1,8 @@
-import json
 from datetime import datetime, timedelta
 
+import psycopg2
 from airflow import DAG
+from airflow.exceptions import AirflowException
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
@@ -15,8 +16,10 @@ DATA_ASSETS = [
 DEFAULT_ARGS = {
  'owner': 'DEUS_NEXT_GOAT',
  'start_date': datetime (2024, 7, 25),
+ 'depends_on_past': True 
 }
 
+#Function to modify the paths
 def modify_paths(ti):
     modified_paths = {}
     for data_asset in DATA_ASSETS:
@@ -25,13 +28,44 @@ def modify_paths(ti):
             modified_path = path.replace("raw", "clean")
             modified_paths[data_asset] = modified_path
     ti.xcom_push(key='modified_paths', value=modified_paths)
+    
+
+def refresh_materialized_view():
+    try:
+        # Connect to your postgres DB
+        conn = psycopg2.connect(
+            host="postgres",
+            database="challenge",
+            user="admin",
+            password="admin"
+        )
+
+        # Create a cursor object
+        cur = conn.cursor()
+
+        # Execute the refresh statement
+        cur.execute("REFRESH MATERIALIZED VIEW imdb.actor_movie_details;")
+
+        # Commit the changes
+        conn.commit()
+
+        # Close the cursor and connection
+        cur.close()
+        conn.close()
+
+        print("Materialized view refreshed successfully")
+
+    except Exception as e:
+        print(f"Error refreshing materialized view: {e}")
+        raise AirflowException(f"Error refreshing materialized view: {e}")
 
 # Instantiate your DAG
 with DAG ('IMDB_ETL', 
           default_args=DEFAULT_ARGS, 
-          schedule_interval=timedelta(days=1),
+          schedule_interval='@daily',
           start_date=datetime(2023, 7, 28),
           catchup=False, 
+          max_active_runs=1,
           description="IMDB: Ingestion and Cleansing Pipeline") as dag:
 
     
@@ -47,7 +81,6 @@ with DAG ('IMDB_ETL',
     for data_asset in DATA_ASSETS:
         paths[data_asset] = f"{{{{ task_instance.xcom_pull(task_ids='ingest_data_{data_asset}') }}}}"
         
-    
     clean_tasks = []
     for data_asset in DATA_ASSETS:
         task = BashOperator(
@@ -82,25 +115,11 @@ with DAG ('IMDB_ETL',
         )
         load_tasks.append(task)
         
-    task_rich_clean = BashOperator(
-                    task_id=f'task_professional_info_clean',
-                    bash_command=f'''spark-submit \
-                        --master spark://master-spark:7077 \
-                        --driver-class-path /opt/airflow/postgresql-42.7.3.jar --jars postgresql-42.7.3.jar \
-                        /mnt/etl/enriching/professional_info.py --paths '{json.dumps(paths_mod)}' --operation clean''',
-                )
-    
-    task_rich_load = BashOperator(
-                    task_id=f'task_professional_info_load',
-                    bash_command=f'''spark-submit \
-                        --master spark://master-spark:7077 \
-                        --driver-class-path /opt/airflow/postgresql-42.7.3.jar --jars postgresql-42.7.3.jar \
-                        --name task_professional_info \
-                        /mnt/etl/enriching/professional_info.py --operation load''',
-                )
-    
+    refresh_mv_task = PythonOperator(
+        task_id='refresh_materialized_view',
+        python_callable=refresh_materialized_view
+    ) 
     
     for i in range(len(DATA_ASSETS)):
-        ingest_tasks[i] >> clean_tasks[i] >> modify_paths_task >> task_rich_clean >> task_rich_load
-        ingest_tasks[i] >> clean_tasks[i] >> modify_paths_task >> load_tasks[i]
+        ingest_tasks[i] >> clean_tasks[i] >> modify_paths_task >> load_tasks[i] >> refresh_mv_task
     

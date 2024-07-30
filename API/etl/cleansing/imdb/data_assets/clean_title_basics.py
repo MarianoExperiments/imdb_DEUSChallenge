@@ -20,7 +20,7 @@ class TitleBasicsClean(CleanTaskIMDB):
 
     def transform(self, df):
         
-        df = df.withColumn("genres", F.explode(F.split(F.col("genres"), ",")))
+        # df = df.withColumn("genres", F.explode(F.split(F.col("genres"), ",")))
         
         df = super().transform(df)
 

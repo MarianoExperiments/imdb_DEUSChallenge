@@ -1,5 +1,3 @@
-import os
-
 from pyspark.sql import SparkSession
 
 class CleanTaskIMDB:
@@ -12,16 +10,16 @@ class CleanTaskIMDB:
             "password": "admin",
             "driver": "org.postgresql.Driver",
             "fetchsize": "1000",
-            "batchsize": "50000",
+            "batchsize": "500000",
         }
-
-    # DATALAKE_CLEAN = "/mnt/datalake/clean/imdb"
 
     def __init__(self, path, operation):
         self.spark = SparkSession.builder \
             .config("spark.jars", "/opt/airflow/postgresql-42.7.3.jar") \
-                .config("spark.executor.memory", "4g") \
-                    .getOrCreate()
+                .config("spark.executor.memory", "2g") \
+                    .config("spark.executor.cores", "4") \
+                        .config("spark.executor.extraJavaOptions", "-XX:+UseG1GC -XX:MaxGCPauseMillis=200")\
+                            .getOrCreate()
         self.read_path = path
         self.write_path = path.replace("raw", "clean")
         self.operation = operation
@@ -40,7 +38,7 @@ class CleanTaskIMDB:
         df.write.jdbc(
             url=self.JDBC_URL,
             table=table_name, 
-            mode="overwrite", 
+            mode="append", 
             properties=self.CONN_PROPERTIES
         )
     

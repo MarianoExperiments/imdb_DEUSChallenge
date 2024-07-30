@@ -2,4 +2,3 @@ Flask
 flask-restx
 psycopg2-binary
 SQLAlchemy
-requests

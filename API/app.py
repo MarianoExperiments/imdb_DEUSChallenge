@@ -1,25 +1,32 @@
 from flask import Flask, jsonify, request
 import psycopg2
 from flask_restx import Api, Resource
+import logging
 
 app = Flask(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
 api = Api(app, version='1.0', title='Professionals API', description='API for professionals information')
 
 def get_db_connection():
-    conn = psycopg2.connect(
-        host="postgres",
-        database="challenge",
-        user="admin",
-        password="admin"
-    )
-    return conn
+    try:
+        conn = psycopg2.connect(
+            host="postgres",
+            database="challenge",
+            user="admin",
+            password="admin"
+        )
+        return conn
+    except Exception as e:
+        logging.error(f"Error connecting to the database: {e}")
+        return None
 
 @api.route('/professionals_list')
 class ProfessionalsList(Resource):
-    @api.doc(params={'profession': 'Choose "actor" or "actress" (default: "actor")'})
+    @api.doc(params={'profession': 'Choose "actor" or "actress" (default: "actor")', "limit": "Limit the operation because the API CAN'T handle big amounts of data (default: 1000)"})
     def get(self):
         profession = request.args.get('profession', 'actor')  # Default to 'actor'
+        limit = request.args.get('limit', 1000)  # Default to 'actor'
         if profession not in ['actor', 'actress']:
             return jsonify({"error": "Invalid profession. Choose 'actor' or 'actress'."}), 400
 
@@ -30,21 +37,29 @@ class ProfessionalsList(Resource):
 	            COUNT(DISTINCT tconst) AS number_of_titles_as_principal,
 	            SUM("runtimeMinutes") AS total_runtime_minutes
             FROM
-	            imdb.professional_info
+	            imdb.actor_movie_details
             WHERE
                 category = %s
             GROUP BY
 	            name
             ORDER BY
 	            score DESC
+            LIMIT %s
         """
 
         conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute(query, (profession,))
-        results = cur.fetchall()
-        cur.close()
-        conn.close()
+        if conn is None:
+            return jsonify({"error": "Unable to connect to the database"}), 500
+        
+        try:
+            cur = conn.cursor()
+            cur.execute(query, (profession,limit,))
+            results = cur.fetchall()
+            cur.close()
+            conn.close()
+        except Exception as e:
+            logging.error(f"Error executing query: {e}")
+            return jsonify({"error": "Error executing query"}), 500
 
         # Format the results into a list of dictionaries
         professionals = []

@@ -12,9 +12,7 @@ services:
     command: >
       sh -c "
         chown -R 1000:0 /mnt/datalake &&
-        mkdir -p -m 777 /mnt/datalake/raw/imdb &&
-        mkdir -p -m 777 /mnt/datalake/clean &&
-        mkdir -p -m 777 /mnt/datalake/clean/imdb
+        mkdir -p -m 777 /mnt/datalake/raw/imdb 
       "
     deploy:
       restart_policy:
@@ -102,8 +100,6 @@ services:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark:7077
       - PYTHONPATH=/mnt/etl
-    ports:
-      - "4040:4040"
     depends_on:
       - spark
     networks:
