@@ -1,0 +1,128 @@
+version: '3.8'
+
+networks:
+  project_net:
+    driver: bridge
+
+services:
+  init:
+    image: alpine
+    volumes:
+      - datalake:/mnt/datalake
+    command: >
+      sh -c "
+        chown -R 1000:0 /mnt/datalake &&
+        mkdir -p -m 777 /mnt/datalake/raw/imdb 
+      "
+    deploy:
+      restart_policy:
+        condition: on-failure
+  
+  postgres:
+    image: library/postgres
+    restart: unless-stopped
+    depends_on:
+      - init
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: challenge
+    hostname: postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - project_net
+    volumes:
+      - ./pgdata/data:/var/lib/postgresql/data
+      - ./services_config/db:/docker-entrypoint-initdb.d/
+      - datalake:/mnt/datalake
+  
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@deus.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "16543:80"
+    depends_on:
+      - postgres
+    networks:
+      - project_net
+
+  airflow:
+    build: ./services_config/airflow_config
+    restart: unless-stopped
+    hostname: airflow
+    user: "1000:0"
+    depends_on:
+      - postgres
+    networks:
+      - project_net
+    ports:
+      - "8080:8080"
+    environment:
+      - PYTHONPATH=/mnt/ETL/tasks
+    volumes:
+      - ./services_config/spark_config/spark_jars/postgresql-42.7.3.jar:/opt/airflow/postgresql-42.7.3.jar
+      - ./ETL/Airflow/dags:/opt/airflow/dags
+      - ./ETL/tasks:/mnt/ETL/tasks
+      - datalake:/mnt/datalake
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3m
+      retries: 3
+    command: airflow standalone
+
+  spark:
+    image: bitnami/spark:latest
+    user: "1000:0"
+    depends_on:
+      airflow:
+        condition: service_healthy
+    environment:
+      - SPARK_MODE=master
+      - PYTHONPATH=/mnt/ETL/tasks
+    ports:
+      - "8081:8080"
+    networks:
+      - project_net
+    hostname: master-spark
+    volumes:
+      - ./services_config/spark_config/spark_jars:/opt/spark_jars
+      - ./ETL/tasks:/mnt/ETL/tasks
+      - datalake:/mnt/datalake
+
+  spark-worker:
+    image: bitnami/spark:latest
+    user: "1000:0"
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark:7077
+      - PYTHONPATH=/mnt/ETL/tasks
+    depends_on:
+      - spark
+    networks:
+      - project_net
+    volumes:
+      - ./services_config/spark_config/spark_jars:/opt/spark_jars
+      - ./ETL/tasks:/mnt/ETL/tasks
+      - datalake:/mnt/datalake
+
+  api:
+    build: ./API
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - spark-worker
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    volumes:
+      - datalake:/mnt/datalake
+    networks:
+      - project_net
+
+volumes:
+  datalake:
