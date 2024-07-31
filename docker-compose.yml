@@ -61,11 +61,11 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - PYTHONPATH=/mnt/etl/tasks
+      - PYTHONPATH=/mnt/ETL/tasks
     volumes:
       - ./services_config/spark_config/spark_jars/postgresql-42.7.3.jar:/opt/airflow/postgresql-42.7.3.jar
       - ./ETL/Airflow/dags:/opt/airflow/dags
-      - ./ETL/tasks:/mnt/etl/tasks
+      - ./ETL/tasks:/mnt/ETL/tasks
       - datalake:/mnt/datalake
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/health"]
@@ -82,7 +82,7 @@ services:
         condition: service_healthy
     environment:
       - SPARK_MODE=master
-      - PYTHONPATH=/mnt/etl/tasks
+      - PYTHONPATH=/mnt/ETL/tasks
     ports:
       - "8081:8080"
     networks:
@@ -90,7 +90,7 @@ services:
     hostname: master-spark
     volumes:
       - ./services_config/spark_config/spark_jars:/opt/spark_jars
-      - ./ETL/tasks:/mnt/etl/tasks
+      - ./ETL/tasks:/mnt/ETL/tasks
       - datalake:/mnt/datalake
 
   spark-worker:
@@ -99,14 +99,14 @@ services:
     environment:
       - SPARK_MODE=worker
       - SPARK_MASTER_URL=spark://spark:7077
-      - PYTHONPATH=/mnt/etl/tasks
+      - PYTHONPATH=/mnt/ETL/tasks
     depends_on:
       - spark
     networks:
       - project_net
     volumes:
       - ./services_config/spark_config/spark_jars:/opt/spark_jars
-      - ./ETL/tasks:/mnt/etl/tasks
+      - ./ETL/tasks:/mnt/ETL/tasks
       - datalake:/mnt/datalake
 
   api:

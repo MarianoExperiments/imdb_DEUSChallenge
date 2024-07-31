@@ -11,7 +11,7 @@ class CleanTaskIMDB:
             "driver": "org.postgresql.Driver",
             "fetchsize": "1000",
             "batchsize": "500000",
-            "truncate": True
+            "truncate": "true"
         }
 
     def __init__(self, path):

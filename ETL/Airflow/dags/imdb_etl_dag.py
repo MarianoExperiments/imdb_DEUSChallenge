@@ -16,7 +16,8 @@ DATA_ASSETS = [
 DEFAULT_ARGS = {
  'owner': 'DEUS_NEXT_GOAT',
  'start_date': datetime (2024, 7, 25),
- 'depends_on_past': True 
+ 'depends_on_past': True,
+ 'retries': 0 
 }
     
 
@@ -63,7 +64,7 @@ with DAG ('IMDB_ETL',
     for data_asset in DATA_ASSETS:
         task = BashOperator(
             task_id=f'ingest_data_{data_asset}',
-            bash_command=f"python3 /mnt/etl/ingestion/request_ingestion.py --data_asset {data_asset}",
+            bash_command=f"python3 /mnt/ETL/tasks/ingestion/request_ingestion.py --data_asset {data_asset}",
         )
         ingest_tasks.append(task)
         
@@ -79,7 +80,7 @@ with DAG ('IMDB_ETL',
                 --master spark://master-spark:7077 \
                 --driver-class-path /opt/airflow/postgresql-42.7.3.jar --jars postgresql-42.7.3.jar \
                 --name clean_data_{data_asset} \
-                /mnt/etl/cleansing/clean_task.py --data_asset {data_asset} --file_path {paths[data_asset]}''',
+                /mnt/ETL/tasks/cleansing/clean_task.py --data_asset {data_asset} --file_path {paths[data_asset]}''',
         )
         clean_tasks.append(task)
         
