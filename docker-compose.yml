@@ -67,19 +67,13 @@ services:
       - ./ETL/Airflow/dags:/opt/airflow/dags
       - ./ETL/tasks:/mnt/ETL/tasks
       - datalake:/mnt/datalake
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health"]
-      interval: 30s
-      timeout: 3m
-      retries: 3
     command: airflow standalone
 
   spark:
     image: bitnami/spark:latest
     user: "1000:0"
     depends_on:
-      airflow:
-        condition: service_healthy
+      - airflow
     environment:
       - SPARK_MODE=master
       - PYTHONPATH=/mnt/ETL/tasks

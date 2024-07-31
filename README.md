@@ -155,6 +155,7 @@ The database consists of four main tables and one materialized view all inside o
     docker-compose up --build -d
     ```
 3. Access the Airflow UI:
+    - Wait to trigger the pipeline. It might take a 1-2 minutes to generate the UI please be patient.
     - http://localhost:8080
     ![](wiki_assets/airflow_page.png)
 4. Access pgAdmin UI 
